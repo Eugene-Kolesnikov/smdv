@@ -993,7 +993,8 @@ def md2body(content: str = "") -> str:
         html: str: the resulting html
 
     """
-    # bugfix for pandoc: make % shown as a single % (in stead of stopping conversion)
+
+    """# bugfix for pandoc: make % shown as a single % (in stead of stopping conversion)
     content = content.replace("%", "%%")
     md_out = subprocess.Popen(
         ["printf", content.encode()], stdout=subprocess.PIPE
@@ -1005,7 +1006,33 @@ def md2body(content: str = "") -> str:
         )
         .decode()
         .strip()
-    )
+    )"""
+
+    import markdown
+
+    extensions = [
+        "abbr",
+        "attr_list",
+        "def_list",
+        "fenced_code",
+        "footnotes",
+        "md_in_html",
+        "tables",
+        "admonition",
+        "codehilite",
+        "legacy_attrs",
+        "legacy_em",
+        "meta",
+        "nl2br",
+        "sane_lists",
+        "smarty",
+        "toc"
+    ]
+
+    html = markdown.markdown(content, extensions=extensions)
+
+    with open("/home/eugene/test.log", 'wt') as file:
+        file.write(html)
 
     urls = (re.findall('src="(.*?)"', html)
             + re.findall("src='(.*?)'", html)
