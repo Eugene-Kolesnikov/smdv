@@ -1,5 +1,6 @@
 flask
 markdown
+python-markdown-math
 neovim
 neovim-remote
 websockets

@@ -1,21 +1,22 @@
 # smdv
-a **s**imple **m**ark**d**own **v**iewer for linux.
+A **S**imple **M**ark**d**own **V**iewer for linux.
 
 ## Dependencies
 
 ### Required
   - `python3` pointing to Python 3.6+.
-  - [Pandoc](http://pandoc.org/) [`pip3 install pandoc` | `apt install pandoc` | `pacman -S pandoc` | ... ]
+  - [Python-Markdown](https://python-markdown.github.io/) [`pip3 install markdown`]
+  - [python-markdown-math](https://github.com/Eugene-Kolesnikov/python-markdown-math/) [`pip3 install https://github.com/Eugene-Kolesnikov/python-markdown-math`]
   - [Flask](http://flask.pocoo.org/) [`pip3 install flask` | `apt install python3-flask` | `pacman -S python-flask` | ... ]
   - [Websockets](https://websockets.readthedocs.io/) [`pip3 install websockets` | `apt install python3-websockets` | `pacman -S python-websockets` | ... ]
 
 ### Optional
-  - [Jupyter](http://jupyter.org) (to view jupyter notebooks) [`pip3 install jupyter` | `apt install jupyter` | `pacman -S jupyter` | ... ]
+  - [Jupyter](http://jupyter.org) to view jupyter notebooks [`pip3 install jupyter` | `apt install jupyter` | `pacman -S jupyter` | ... ]
   - [Neovim Remote](https://github.com/mhinz/neovim-remote) [`pip3 install neovim neovim-remote`]
 
 ## Installation
 ```
-    pip3 install smdv
+    pip3 install https://github.com/Eugene-Kolesnikov/smdv
 ```
 
 ## Configuration

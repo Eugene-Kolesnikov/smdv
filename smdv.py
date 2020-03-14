@@ -16,8 +16,8 @@
 """ smdv: a simple markdown viewer """
 
 ## Metadata
-__version__ = "0.1.1"
-__author__ = "Floris Laporte"
+__version__ = "0.2.0"
+__author__ = "Eugene Kolesnikov"
 
 
 ## Imports
@@ -41,10 +41,27 @@ import http.client
 # 3rd party dependencies
 import flask
 import websockets
+import markdown, mdx_math
+
+MARKDOWN_EXTENSIIONS = [
+    mdx_math.MathExtension(enable_dollar_delimiter=True),
+    "abbr",
+    "attr_list",
+    "def_list",
+    "fenced_code",
+    "footnotes",
+    "md_in_html",
+    "tables",
+    "admonition",
+    "codehilite",
+    "sane_lists",
+    "toc"
+]
+
+MD_INTERPRETER = markdown.Markdown(extensions=MARKDOWN_EXTENSIIONS)
 
 # 3rd party CLI dependencies
 # fuser
-# pandoc
 # neovim-remote (to edit files with vim)
 
 ## Globals
@@ -160,81 +177,311 @@ HTMLTEMPLATE = """
             .input_area, .output_area{{
               line-height: 1;
             }}
-            .highlight {{
-              background: #fafafa;
-              border: #ccc;
-              border-radius: 5px;
-              padding-left: 10pt;
+
+            /* VS Code highlighting */
+            .codehilite .hll {{ background-color: #ffffcc }}
+            .codehilite  {{ background: #ffffff; }}
+            .codehilite .c {{ color: #008000 }} /* Comment */
+            .codehilite .err {{ border: 1px solid #FF0000 }} /* Error */
+            .codehilite .k {{ color: #0000ff }} /* Keyword */
+            .codehilite .ch {{ color: #008000 }} /* Comment.Hashbang */
+            .codehilite .cm {{ color: #008000 }} /* Comment.Multiline */
+            .codehilite .cp {{ color: #0000ff }} /* Comment.Preproc */
+            .codehilite .cpf {{ color: #008000 }} /* Comment.PreprocFile */
+            .codehilite .c1 {{ color: #008000 }} /* Comment.Single */
+            .codehilite .cs {{ color: #008000 }} /* Comment.Special */
+            .codehilite .ge {{ font-style: italic }} /* Generic.Emph */
+            .codehilite .gh {{ font-weight: bold }} /* Generic.Heading */
+            .codehilite .gp {{ font-weight: bold }} /* Generic.Prompt */
+            .codehilite .gs {{ font-weight: bold }} /* Generic.Strong */
+            .codehilite .gu {{ font-weight: bold }} /* Generic.Subheading */
+            .codehilite .kc {{ color: #0000ff }} /* Keyword.Constant */
+            .codehilite .kd {{ color: #0000ff }} /* Keyword.Declaration */
+            .codehilite .kn {{ color: #0000ff }} /* Keyword.Namespace */
+            .codehilite .kp {{ color: #0000ff }} /* Keyword.Pseudo */
+            .codehilite .kr {{ color: #0000ff }} /* Keyword.Reserved */
+            .codehilite .kt {{ color: #2b91af }} /* Keyword.Type */
+            .codehilite .s {{ color: #a31515 }} /* Literal.String */
+            .codehilite .nc {{ color: #2b91af }} /* Name.Class */
+            .codehilite .ow {{ color: #0000ff }} /* Operator.Word */
+            .codehilite .sa {{ color: #a31515 }} /* Literal.String.Affix */
+            .codehilite .sb {{ color: #a31515 }} /* Literal.String.Backtick */
+            .codehilite .sc {{ color: #a31515 }} /* Literal.String.Char */
+            .codehilite .dl {{ color: #a31515 }} /* Literal.String.Delimiter */
+            .codehilite .sd {{ color: #a31515 }} /* Literal.String.Doc */
+            .codehilite .s2 {{ color: #a31515 }} /* Literal.String.Double */
+            .codehilite .se {{ color: #a31515 }} /* Literal.String.Escape */
+            .codehilite .sh {{ color: #a31515 }} /* Literal.String.Heredoc */
+            .codehilite .si {{ color: #a31515 }} /* Literal.String.Interpol */
+            .codehilite .sx {{ color: #a31515 }} /* Literal.String.Other */
+            .codehilite .sr {{ color: #a31515 }} /* Literal.String.Regex */
+            .codehilite .s1 {{ color: #a31515 }} /* Literal.String.Single */
+            .codehilite .ss {{ color: #a31515 }} /* Literal.String.Symbol */
+
+            @font-face {{
+                font-family: "Material Icons";
+                font-style: normal;
+                font-weight: 400;
+                src: local("Material Icons"), local("MaterialIcons-Regular"), url("data:application/x-font-woff;charset=utf-8;base64,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") format("woff");
             }}
-            .highlight .ge {{ font-style: italic }} /* Generic.Emph */
-            .highlight .gs {{ font-weight: bold }} /* Generic.Strong */
-            .highlight .hll {{ background-color: #ffffcc }}
-            /*.highlight .err {{ border: 1px solid #FF0000 }} /* Error */
-            .highlight .gr {{ color: #FF0000 }} /* Generic.Error */
-            .highlight .gh {{ color: #000080; font-weight: bold }} /* Generic.Heading */
-            .highlight .gp {{ color: #000080; font-weight: bold }} /* Generic.Prompt */
-            .highlight .gt {{ color: #0044DD }} /* Generic.Traceback */
-            .highlight .nc {{ color: #0000FF; font-weight: bold }} /* Name.Class */
-            .highlight .nf {{ color: #0000FF }} /* Name.Function */
-            .highlight .nn {{ color: #0000FF; font-weight: bold }} /* Name.Namespace */
-            .highlight .fm {{ color: #0000FF }} /* Name.Function.Magic */
-            .highlight .ss {{ color: #19177C }} /* Literal.String.Symbol */
-            .highlight .vc {{ color: #19177C }} /* Name.Variable.Class */
-            .highlight .vg {{ color: #19177C }} /* Name.Variable.Global */
-            .highlight .vi {{ color: #19177C }} /* Name.Variable.Instance */
-            .highlight .vm {{ color: #19177C }} /* Name.Variable.Magic */
-            .highlight .k {{ color: #1eaedb; font-weight: bold }} /* Keyword */
-            .highlight .kc {{ color: #1eaedb; font-weight: bold }} /* Keyword.Constant */
-            .highlight .kd {{ color: #1eaedb; font-weight: bold }} /* Keyword.Declaration */
-            .highlight .kn {{ color: #1eaedb; font-weight: bold }} /* Keyword.Namespace */
-            .highlight .kp {{ color: #1eaedb }} /* Keyword.Pseudo */
-            .highlight .kr {{ color: #1eaedb; font-weight: bold }} /* Keyword.Reserved */
-            .highlight .nb {{ color: #1eaedb }} /* Name.Builtin */
-            .highlight .nt {{ color: #1eaedb; font-weight: bold }} /* Name.Tag */
-            .highlight .sx {{ color: #1eaedb }} /* Literal.String.Other */
-            .highlight .bp {{ color: #1eaedb }} /* Name.Builtin.Pseudo */
-            .highlight .m {{ color: #1eaedc }} /* Literal.Number */
-            .highlight .mb {{ color: #1eaedc }} /* Literal.Number.Bin */
-            .highlight .mf {{ color: #1eaedc }} /* Literal.Number.Float */
-            .highlight .mh {{ color: #1eaedc }} /* Literal.Number.Hex */
-            .highlight .mi {{ color: #1eaedc }} /* Literal.Number.Integer */
-            .highlight .mo {{ color: #1eaedc }} /* Literal.Number.Oct */
-            .highlight .il {{ color: #1eaedc }} /* Literal.Number.Integer.Long */
-            .highlight .o {{ color: #00a000 }} /* Operator */
-            .highlight .gi {{ color: #00a000 }} /* Generic.Inserted */
-            .highlight .c {{ color: #408080; font-style: italic }} /* Comment */
-            .highlight .ch {{ color: #408080; font-style: italic }} /* Comment.Hashbang */
-            .highlight .cm {{ color: #408080; font-style: italic }} /* Comment.Multiline */
-            .highlight .cpf {{ color: #408080; font-style: italic }} /* Comment.PreprocFile */
-            .highlight .c1 {{ color: #408080; font-style: italic }} /* Comment.Single */
-            .highlight .cs {{ color: #408080; font-style: italic }} /* Comment.Special */
-            .highlight .cp {{ color: #BC7A00 }} /* Comment.Preproc */
-            .highlight .gd {{ color: #A00000 }} /* Generic.Deleted */
-            .highlight .go {{ color: #888888 }} /* Generic.Output */
-            .highlight .gu {{ color: #800080; font-weight: bold }} /* Generic.Subheading */
-            .highlight .kt {{ color: #B00040 }} /* Keyword.Type */
-            .highlight .s {{ color: #0fa0ce }} /* Literal.String */
-            .highlight .na {{ color: #7D9029 }} /* Name.Attribute */
-            .highlight .no {{ color: #880000 }} /* Name.Constant */
-            .highlight .nd {{ color: #AA22FF }} /* Name.Decorator */
-            .highlight .ni {{ color: #999999; font-weight: bold }} /* Name.Entity */
-            .highlight .ne {{ color: #D2413A; font-weight: bold }} /* Name.Exception */
-            .highlight .nl {{ color: #A0A000 }} /* Name.Label */
-            .highlight .nv {{ color: #19177C }} /* Name.Variable */
-            .highlight .ow {{ color: #AA22FF; font-weight: bold }} /* Operator.Word */
-            .highlight .w {{ color: #bbbbbb }} /* Text.Whitespace */
-            .highlight .sa {{ color: #0fa0ce }} /* Literal.String.Affix */
-            .highlight .sb {{ color: #0fa0ce }} /* Literal.String.Backtick */
-            .highlight .sc {{ color: #0fa0ce }} /* Literal.String.Char */
-            .highlight .dl {{ color: #0fa0ce }} /* Literal.String.Delimiter */
-            .highlight .sd {{ color: #0fa0ce; font-style: italic }} /* Literal.String.Doc */
-            .highlight .s2 {{ color: #0fa0ce }} /* Literal.String.Double */
-            .highlight .se {{ color: #BB6622; font-weight: bold }} /* Literal.String.Escape */
-            .highlight .sh {{ color: #0fa0ce }} /* Literal.String.Heredoc */
-            .highlight .si {{ color: #BB6688; font-weight: bold }} /* Literal.String.Interpol */
-            .highlight .sr {{ color: #BB6688 }} /* Literal.String.Regex */
-            .highlight .s1 {{ color: #0fa0ce }} /* Literal.String.Single */
+
+            .admonition {{
+                box-shadow: 0 2px 2px 0 rgba(0, 0, 0, .14), 0 1px 5px 0 rgba(0, 0, 0, .12), 0 3px 1px -2px rgba(0, 0, 0, .2);
+                position: relative;
+                margin: 1.5625em 0;
+                padding: 0 1.2rem;
+                border-left: .4rem solid rgba(68, 138, 255, .8);
+                border-radius: .2rem;
+                background-color: rgba(255, 255, 255, 0.05);
+                overflow: auto;
+            }}
+
+            .admonition>.admonition-title {{
+                margin: 0 -1.2rem;
+                padding: .8rem 1.2rem .8rem 3.6rem;
+                margin-bottom: 15px;
+                border-bottom: 1px solid rgba(68, 138, 255, .2);
+                background-color: rgba(68, 138, 255, .1);
+                font-weight: 700;
+            }}
+
+            .admonition>.admonition-title:before {{
+                position: absolute;
+                left: 1.2rem;
+                font-size: 1.5rem;
+                color: rgba(68, 138, 255, .8);
+                content: "\E3C9";
+            }}
+
+            .admonition>.admonition-title:before {{
+                font-family: Material Icons;
+                font-style: normal;
+                font-variant: normal;
+                font-weight: 400;
+                line-height: 2rem;
+                text-transform: none;
+                white-space: nowrap;
+                speak: none;
+                word-wrap: normal;
+                direction: ltr;
+            }}
+
+            .admonition.summary,
+            .admonition.abstract,
+            .admonition.tldr {{
+                border-left-color: rgba(0, 176, 255, .8);
+            }}
+
+            .admonition.summary>.admonition-title,
+            .admonition.abstract>.admonition-title,
+            .admonition.tldr>.admonition-title {{
+                background-color: rgba(0, 176, 255, .1);
+                border-bottom-color: rgba(0, 176, 255, .2);
+            }}
+
+            .admonition.summary>.admonition-title:before,
+            .admonition.abstract>.admonition-title:before,
+            .admonition.tldr>.admonition-title:before {{
+                color: rgba(0, 176, 255, 1);
+                ;
+                content: "\E8D2";
+            }}
+
+            .admonition.hint,
+            .admonition.tip {{
+                border-left-color: rgba(0, 191, 165, .8);
+            }}
+
+            .admonition.hint>.admonition-title,
+            .admonition.tip>.admonition-title {{
+                background-color: rgba(0, 191, 165, .1);
+                border-bottom-color: rgba(0, 191, 165, .2);
+            }}
+
+            .admonition.hint>.admonition-title:before,
+            .admonition.tip>.admonition-title:before {{
+                color: rgba(0, 191, 165, 1);
+                content: "\E80E";
+            }}
+
+            .admonition.info,
+            .admonition.todo {{
+                border-left-color: rgba(0, 184, 212, .8);
+            }}
+
+            .admonition.info>.admonition-title,
+            .admonition.todo>.admonition-title {{
+                background-color: rgba(0, 184, 212, .1);
+                border-bottom-color: rgba(0, 184, 212, .2);
+            }}
+
+            .admonition.info>.admonition-title:before,
+            .admonition.todo>.admonition-title:before {{
+                color: rgba(0, 184, 212, 1);
+                ;
+                content: "\E88E";
+            }}
+
+            .admonition.success,
+            .admonition.check,
+            .admonition.done {{
+                border-left-color: rgba(0, 200, 83, .8);
+            }}
+
+            .admonition.success>.admonition-title,
+            .admonition.check>.admonition-title,
+            .admonition.done>.admonition-title {{
+                background-color: rgba(0, 200, 83, .1);
+                border-bottom-color: rgba(0, 200, 83, .2);
+            }}
+
+            .admonition.success>.admonition-title:before,
+            .admonition.check>.admonition-title:before,
+            .admonition.done>.admonition-title:before {{
+                color: rgba(0, 200, 83, 1);
+                ;
+                content: "\E876";
+            }}
+
+            .admonition.question,
+            .admonition.help,
+            .admonition.faq {{
+                border-left-color: rgba(100, 221, 23, .8);
+            }}
+
+            .admonition.question>.admonition-title,
+            .admonition.help>.admonition-title,
+            .admonition.faq>.admonition-title {{
+                background-color: rgba(100, 221, 23, .1);
+                border-bottom-color: rgba(100, 221, 23, .2);
+            }}
+
+            .admonition.question>.admonition-title:before,
+            .admonition.help>.admonition-title:before,
+            .admonition.faq>.admonition-title:before {{
+                color: rgba(100, 221, 23, 1);
+                ;
+                content: "\E887";
+            }}
+
+            .admonition.warning,
+            .admonition.attention,
+            .admonition.caution {{
+                border-left-color: rgba(255, 145, 0, .8);
+            }}
+
+            .admonition.warning>.admonition-title,
+            .admonition.attention>.admonition-title,
+            .admonition.caution>.admonition-title {{
+                background-color: rgba(255, 145, 0, .1);
+                border-bottom-color: rgba(255, 145, 0, .2);
+            }}
+
+            .admonition.attention>.admonition-title:before {{
+                color: rgba(255, 145, 0, 1);
+                content: "\E417";
+            }}
+
+            .admonition.warning>.admonition-title:before,
+            .admonition.caution>.admonition-title:before {{
+                color: rgba(255, 145, 0, 1);
+                content: "\E002";
+            }}
+
+            .admonition.failure,
+            .admonition.fail,
+            .admonition.missing {{
+                border-left-color: rgba(255, 82, 82, .8);
+            }}
+
+            .admonition.failure>.admonition-title,
+            .admonition.fail>.admonition-title,
+            .admonition.missing>.admonition-title {{
+                background-color: rgba(255, 82, 82, .1);
+                border-bottom-color: rgba(255, 82, 82, .2);
+            }}
+
+            .admonition.failure>.admonition-title:before,
+            .admonition.fail>.admonition-title:before,
+            .admonition.missing>.admonition-title:before {{
+                color: rgba(255, 82, 82, 1);
+                ;
+                content: "\E14C";
+            }}
+
+            .admonition.danger,
+            .admonition.error,
+            .admonition.bug {{
+                border-left-color: rgba(255, 23, 68, .8);
+            }}
+
+            .admonition.danger>.admonition-title,
+            .admonition.error>.admonition-title,
+            .admonition.bug>.admonition-title {{
+                background-color: rgba(255, 23, 68, .1);
+                border-bottom-color: rgba(255, 23, 68, .2);
+            }}
+
+            .admonition.danger>.admonition-title:before {{
+                color: rgba(255, 23, 68, 1);
+                content: "\E3E7";
+            }}
+
+            .admonition.error>.admonition-title:before {{
+                color: rgba(255, 23, 68, 1);
+                content: "\E14C";
+            }}
+
+            .admonition.bug>.admonition-title:before {{
+                color: rgba(255, 23, 68, 1);
+                content: "\E868";
+            }}
+
+            .admonition.example,
+            .admonition.snippet {{
+                border-left-color: rgba(0, 184, 212, .8);
+            }}
+
+            .admonition.example>.admonition-title,
+            .admonition.snippet>.admonition-title {{
+                background-color: rgba(0, 184, 212, .1);
+                border-bottom-color: rgba(0, 184, 212, .2);
+            }}
+
+            .admonition.example>.admonition-title:before,
+            .admonition.snippet>.admonition-title:before {{
+                color: rgba(0, 184, 212, 1);
+                ;
+                content: "\E242";
+            }}
+
+            .admonition.quote,
+            .admonition.cite {{
+                border-left-color: rgba(158, 158, 158, .8);
+            }}
+
+            .admonition.quote>.admonition-title,
+            .admonition.cite>.admonition-title {{
+                background-color: rgba(158, 158, 158, .1);
+                border-bottom-color: rgba(158, 158, 158, .2);
+            }}
+
+            .admonition.quote>.admonition-title:before,
+            .admonition.cite>.admonition-title:before {{
+                color: rgba(158, 158, 158, 1);
+                ;
+                content: "\E244";
+            }}
         </style>
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+        <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+        <script>
+            window.MathJax = {{
+                tex: {{
+                    inlineMath: [['$', '$'], ['\\(', '\\)']]
+                }}
+            }};
+        </script>
     </head>
     <body>
         <div id="navbar">
@@ -308,6 +555,7 @@ HTMLTEMPLATE = """
                 }} else {{
                     document.getElementById("content").innerHTML = message.cwdBody;
                 }}
+                MathJax.typeset()
             }}
 
             // activate navbar
@@ -994,45 +1242,7 @@ def md2body(content: str = "") -> str:
 
     """
 
-    """# bugfix for pandoc: make % shown as a single % (in stead of stopping conversion)
-    content = content.replace("%", "%%")
-    md_out = subprocess.Popen(
-        ["printf", content.encode()], stdout=subprocess.PIPE
-    ).stdout
-
-    html = (
-        subprocess.check_output(
-            ["pandoc", "--from", "gfm", "--to", "html"], stdin=md_out
-        )
-        .decode()
-        .strip()
-    )"""
-
-    import markdown
-
-    extensions = [
-        "abbr",
-        "attr_list",
-        "def_list",
-        "fenced_code",
-        "footnotes",
-        "md_in_html",
-        "tables",
-        "admonition",
-        "codehilite",
-        "legacy_attrs",
-        "legacy_em",
-        "meta",
-        "nl2br",
-        "sane_lists",
-        "smarty",
-        "toc"
-    ]
-
-    html = markdown.markdown(content, extensions=extensions)
-
-    with open("/home/eugene/test.log", 'wt') as file:
-        file.write(html)
+    html = MD_INTERPRETER.convert(content)
 
     urls = (re.findall('src="(.*?)"', html)
             + re.findall("src='(.*?)'", html)
